@@ -1,0 +1,266 @@
+
+<!DOCTYPE html>
+<html lang="he">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zion Store Pro</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;700&display=swap" rel="stylesheet">
+
+<style>
+:root{
+  --primary:#0f172a;
+  --accent:#2563eb;
+  --light:#f1f5f9;
+  --success:#16a34a;
+}
+
+*{box-sizing:border-box;margin:0;padding:0;font-family:'Heebo',sans-serif;}
+body{background:var(--light);direction:rtl;}
+
+header{
+  background:var(--primary);
+  color:white;
+  padding:20px 40px;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  position:sticky;
+  top:0;
+  z-index:1000;
+}
+
+header h1{font-size:22px;}
+header input{
+  padding:8px;
+  border-radius:6px;
+  border:none;
+  width:200px;
+}
+
+.cart-btn{
+  background:var(--accent);
+  padding:8px 15px;
+  border-radius:6px;
+  cursor:pointer;
+}
+
+.container{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(250px,1fr));
+  gap:20px;
+  padding:40px;
+}
+
+.product{
+  background:white;
+  padding:15px;
+  border-radius:12px;
+  box-shadow:0 5px 15px rgba(0,0,0,0.08);
+  transition:0.3s;
+}
+
+.product:hover{
+  transform:translateY(-5px);
+}
+
+.product img{
+  width:100%;
+  height:200px;
+  object-fit:cover;
+  border-radius:8px;
+}
+
+.product h3{margin:10px 0;}
+.price{font-weight:bold;margin:5px 0;font-size:18px;}
+
+.product button{
+  background:var(--accent);
+  color:white;
+  border:none;
+  padding:8px 12px;
+  border-radius:6px;
+  cursor:pointer;
+  width:100%;
+}
+
+.cart{
+  position:fixed;
+  top:0;
+  left:-400px;
+  width:350px;
+  height:100%;
+  background:white;
+  box-shadow:5px 0 20px rgba(0,0,0,0.2);
+  padding:20px;
+  transition:0.4s;
+  overflow-y:auto;
+}
+
+.cart.active{left:0;}
+
+.cart h2{text-align:center;margin-bottom:15px;}
+
+.cart-item{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:10px;
+  font-size:14px;
+}
+
+.qty-controls button{
+  padding:2px 6px;
+  margin:0 2px;
+  cursor:pointer;
+}
+
+.total{
+  margin-top:15px;
+  font-weight:bold;
+  font-size:18px;
+}
+
+.checkout{
+  background:var(--success);
+  color:white;
+  width:100%;
+  padding:10px;
+  border:none;
+  border-radius:6px;
+  margin-top:10px;
+  cursor:pointer;
+}
+
+footer{
+  text-align:center;
+  padding:20px;
+  background:#e2e8f0;
+  margin-top:40px;
+  font-size:14px;
+}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🛒 Zion Store Pro</h1>
+  <input type="text" id="search" placeholder="חפש מוצר...">
+  <div class="cart-btn" onclick="toggleCart()">סל 🛍️ (<span id="cart-count">0</span>)</div>
+</header>
+
+<div class="container" id="products"></div>
+
+<div class="cart" id="cart">
+  <h2>סל קניות</h2>
+  <div id="cart-items"></div>
+  <div class="total">סה"כ כולל מע"מ: ₪<span id="total">0</span></div>
+  <button class="checkout" onclick="checkout()">לתשלום</button>
+</div>
+
+<footer>
+  © 2026 Zion Store | כל הזכויות שמורות
+</footer>
+
+<script>
+const products = [
+  {id:1,name:"חולצה יוקרתית",price:120,img:"https://via.placeholder.com/300"},
+  {id:2,name:"נעלי ספורט",price:350,img:"https://via.placeholder.com/300"},
+  {id:3,name:"שעון חכם",price:799,img:"https://via.placeholder.com/300"},
+  {id:4,name:"כובע אופנתי",price:90,img:"https://via.placeholder.com/300"}
+];
+
+let cart = JSON.parse(localStorage.getItem("cart")) || [];
+
+function renderProducts(filter=""){
+  const container = document.getElementById("products");
+  container.innerHTML="";
+  products
+  .filter(p=>p.name.includes(filter))
+  .forEach(product=>{
+    container.innerHTML+=`
+      <div class="product">
+        <img src="${product.img}">
+        <h3>${product.name}</h3>
+        <div class="price">₪${product.price}</div>
+        <button onclick="addToCart(${product.id})">הוסף לסל</button>
+      </div>
+    `;
+  });
+}
+
+function addToCart(id){
+  const product = products.find(p=>p.id===id);
+  const existing = cart.find(item=>item.id===id);
+
+  if(existing){
+    existing.qty++;
+  }else{
+    cart.push({...product,qty:1});
+  }
+
+  saveCart();
+  renderCart();
+}
+
+function changeQty(id,delta){
+  const item = cart.find(p=>p.id===id);
+  if(!item) return;
+  item.qty += delta;
+  if(item.qty<=0){
+    cart = cart.filter(p=>p.id!==id);
+  }
+  saveCart();
+  renderCart();
+}
+
+function renderCart(){
+  const cartItems = document.getElementById("cart-items");
+  cartItems.innerHTML="";
+  let total=0;
+  let count=0;
+
+  cart.forEach(item=>{
+    total+=item.price*item.qty;
+    count+=item.qty;
+    cartItems.innerHTML+=`
+      <div class="cart-item">
+        <span>${item.name}</span>
+        <div class="qty-controls">
+          <button onclick="changeQty(${item.id},-1)">-</button>
+          ${item.qty}
+          <button onclick="changeQty(${item.id},1)">+</button>
+        </div>
+        <span>₪${item.price*item.qty}</span>
+      </div>
+    `;
+  });
+
+  total*=1.17;
+  document.getElementById("total").innerText=total.toFixed(2);
+  document.getElementById("cart-count").innerText=count;
+}
+
+function saveCart(){
+  localStorage.setItem("cart",JSON.stringify(cart));
+}
+
+function toggleCart(){
+  document.getElementById("cart").classList.toggle("active");
+}
+
+function checkout(){
+  alert("כאן נחבר סליקה אמיתית כמו Stripe / PayPal בגרסה מתקדמת");
+}
+
+document.getElementById("search").addEventListener("input",(e)=>{
+  renderProducts(e.target.value);
+});
+
+renderProducts();
+renderCart();
+</script>
+
+</body>
+</html>
